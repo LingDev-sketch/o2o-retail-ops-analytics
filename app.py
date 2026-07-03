@@ -240,6 +240,103 @@ def promo_view(orders: pd.DataFrame, promotions: pd.DataFrame, products: pd.Data
     return pd.DataFrame(rows).merge(products[["product_id", "product_name", "category"]], on="product_id", how="left")
 
 
+def build_ai_summary(
+    total_gmv: float,
+    order_count: int,
+    aov: float,
+    refund_rate: float,
+    stockout_rate: float,
+    daily: pd.DataFrame,
+    store: pd.DataFrame,
+    anomalies: pd.DataFrame,
+    product_view: pd.DataFrame,
+    promo: pd.DataFrame,
+) -> list[str]:
+    summary: list[str] = []
+
+    if daily.empty or order_count == 0:
+        return ["当前筛选范围内订单数据不足，建议扩大日期、城市或品类范围后重新查看。"]
+
+    first_gmv = daily.iloc[0]["gmv"]
+    last_gmv = daily.iloc[-1]["gmv"]
+    gmv_change = last_gmv / first_gmv - 1 if first_gmv else 0
+
+    first_orders = daily.iloc[0]["order_count"]
+    last_orders = daily.iloc[-1]["order_count"]
+    order_change = last_orders / first_orders - 1 if first_orders else 0
+
+    top_city = "暂无"
+    if not store.empty:
+        top_city = (
+            store.groupby("city", as_index=False)["gmv"]
+            .sum()
+            .sort_values("gmv", ascending=False)
+            .iloc[0]["city"]
+        )
+
+    summary.append(
+        f"经营概览：当前筛选范围内 GMV 为 {money_text(total_gmv)}，订单量 {order_count:,} 单，"
+        f"客单价 {aov:.1f} 元；GMV 较首日变化 {pct_text(gmv_change)}，订单量较首日变化 {pct_text(order_change)}。"
+    )
+
+    if gmv_change < -0.15 and order_change < -0.1:
+        summary.append("销售趋势：GMV 与订单量同步下滑，优先排查流量曝光、门店营业状态、活动结束或履约异常。")
+    elif gmv_change < -0.15:
+        summary.append("销售趋势：GMV 下滑较明显，但订单量未同步大幅下降，建议重点关注客单价、商品结构和促销折扣变化。")
+    elif gmv_change > 0.15:
+        summary.append(f"销售趋势：GMV 增长较明显，主要贡献城市可优先关注 {top_city}，建议复盘高表现门店和品类。")
+    else:
+        summary.append("销售趋势：GMV 整体波动处于相对可控范围，建议继续关注异常门店和库存风险。")
+
+    if anomalies.empty:
+        summary.append("异常监控：近 10 天未识别到明显异常门店，当前经营风险相对平稳。")
+    else:
+        rule_counts = anomalies["rule"].value_counts().head(3)
+        rule_text = "、".join([f"{rule} {count} 次" for rule, count in rule_counts.items()])
+        high_count = int((anomalies["level"] == "high").sum())
+        summary.append(
+            f"异常监控：近 10 天共识别 {len(anomalies)} 条异常记录，其中 high 等级 {high_count} 条；"
+            f"主要异常类型为 {rule_text}。"
+        )
+
+    if stockout_rate >= 0.15:
+        summary.append(f"库存风险：整体缺货率为 {pct_text(stockout_rate)}，已超过 15% 预警线，建议优先检查热销 SKU 补货和安全库存设置。")
+    elif stockout_rate >= 0.08:
+        summary.append(f"库存风险：整体缺货率为 {pct_text(stockout_rate)}，处于需要关注区间，建议跟踪高销量低库存商品。")
+    else:
+        summary.append(f"库存风险：整体缺货率为 {pct_text(stockout_rate)}，库存风险暂时较低。")
+
+    risk_products = product_view[product_view["stock_risk"] == "高销量低库存"] if not product_view.empty else pd.DataFrame()
+    if not risk_products.empty:
+        top_risk = risk_products.sort_values("gmv", ascending=False).iloc[0]
+        summary.append(
+            f"商品建议：识别到 {len(risk_products)} 个高销量低库存商品，优先关注 "
+            f"{top_risk['product_name']}，避免库存不足影响销售承接。"
+        )
+
+    if not promo.empty:
+        avg_lift = promo["promo_lift"].mean()
+        best_promo = promo.sort_values("promo_lift", ascending=False).iloc[0]
+        if avg_lift > 0.2:
+            promo_judgement = "促销整体拉动效果较好"
+        elif avg_lift > 0:
+            promo_judgement = "促销整体有一定拉动，但效果一般"
+        else:
+            promo_judgement = "促销整体拉动不足"
+        summary.append(
+            f"促销复盘：平均促销 uplift 为 {pct_text(avg_lift)}，{promo_judgement}；"
+            f"其中 {best_promo['product_name']} 提升率最高，为 {pct_text(best_promo['promo_lift'])}。"
+        )
+
+    if refund_rate >= 0.08:
+        summary.append(f"履约质量：退款率为 {pct_text(refund_rate)}，超过 8% 预警线，建议按门店、商品和日期拆解退款原因。")
+    else:
+        summary.append(f"履约质量：退款率为 {pct_text(refund_rate)}，当前整体退款风险可控。")
+
+    summary.append("行动建议：优先跟进 high 等级异常门店、高销量低库存商品，以及促销 uplift 较低但缺货率较高的商品。")
+    return summary
+
+
 orders, stores, products, inventory, promotions, rules = load_data()
 
 st.title("O2O即时零售运营数据质量监控与自动化分析平台")
@@ -269,6 +366,9 @@ orders_f, inventory_f = filter_data(
 
 daily = daily_metrics(orders_f, inventory_f)
 store = store_metrics(orders_f, inventory_f, stores[stores["city"].isin(selected_cities)])
+anomalies = detect_anomalies(orders_f, inventory_f, stores, rules)
+product_view = product_inventory_view(orders_f, inventory_f, products)
+promo = promo_view(orders_f, promotions, products)
 
 total_gmv = orders_f["gmv"].sum()
 order_count = orders_f["order_id"].nunique()
@@ -283,7 +383,7 @@ col3.metric("客单价", f"{aov:.1f}")
 col4.metric("退款率", pct_text(refund_rate))
 col5.metric("缺货率", pct_text(stockout_rate))
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["经营看板", "异常门店", "商品库存", "促销复盘", "规则配置"])
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["经营看板", "异常门店", "商品库存", "促销复盘", "规则配置", "AI分析总结"])
 
 with tab1:
     left, right = st.columns([1.4, 1])
@@ -306,7 +406,6 @@ with tab1:
     st.dataframe(city_perf, use_container_width=True, hide_index=True)
 
 with tab2:
-    anomalies = detect_anomalies(orders_f, inventory_f, stores, rules)
     st.subheader("近 10 天异常门店清单")
     if anomalies.empty:
         st.success("当前筛选范围内未识别到异常门店。")
@@ -320,7 +419,6 @@ with tab2:
         )
 
 with tab3:
-    product_view = product_inventory_view(orders_f, inventory_f, products)
     left, right = st.columns([1, 1])
     with left:
         fig = px.bar(product_view.head(12), x="gmv", y="product_name", color="category", orientation="h", title="商品 GMV 排名")
@@ -337,7 +435,6 @@ with tab3:
     st.dataframe(product_view, use_container_width=True, hide_index=True)
 
 with tab4:
-    promo = promo_view(orders_f, promotions, products)
     promo["promo_lift_text"] = promo["promo_lift"].map(pct_text)
     fig = px.bar(promo, x="product_name", y="promo_lift", color="category", title="促销前后 GMV 提升率")
     st.plotly_chart(fig, use_container_width=True)
@@ -347,3 +444,27 @@ with tab5:
     st.subheader("YAML 异常规则配置")
     st.code(RULES_PATH.read_text(encoding="utf-8"), language="yaml")
     st.info("面试讲法：新增客户指标或异常规则时，优先调整配置文件，减少重复改代码。")
+
+with tab6:
+    st.subheader("AI自动分析总结")
+    st.caption("基于当前筛选条件、核心指标、异常规则和促销结果自动生成经营分析结论。")
+    summary = build_ai_summary(
+        total_gmv,
+        order_count,
+        aov,
+        refund_rate,
+        stockout_rate,
+        daily,
+        store,
+        anomalies,
+        product_view,
+        promo,
+    )
+    for item in summary:
+        st.markdown(f"- {item}")
+    st.download_button(
+        "下载分析总结 TXT",
+        "\n".join(summary),
+        file_name="ai_analysis_summary.txt",
+        mime="text/plain",
+    )
