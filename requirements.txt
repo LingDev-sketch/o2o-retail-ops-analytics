@@ -4,3 +4,4 @@ plotly>=6.0.0
 pyyaml>=6.0.0
 openpyxl>=3.1.0
 pygwalker>=0.4.9
+tornado>=6.5.0

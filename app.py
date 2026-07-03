@@ -339,22 +339,26 @@ def build_ai_summary(
 
 def render_pygwalker_explorer(df: pd.DataFrame) -> None:
     try:
-        from pygwalker.api.streamlit import StreamlitRenderer
-    except ImportError:
-        st.warning("当前环境未安装 PyGWalker。部署时请确认 requirements.txt 中包含 pygwalker。")
+        import pygwalker as pyg
+        import streamlit.components.v1 as components
+    except ImportError as exc:
+        st.warning(f"PyGWalker 依赖未就绪：{exc}。请确认 requirements.txt 中包含 pygwalker。")
         return
 
     if df.empty:
         st.info("当前筛选条件下没有可探索的数据。")
         return
 
-    max_rows = 8000
+    max_rows = 2000
     if len(df) > max_rows:
         st.info(f"当前数据量较大，已取前 {max_rows:,} 行用于自助探索，避免页面加载过慢。")
         df = df.head(max_rows)
 
-    renderer = StreamlitRenderer(df)
-    renderer.explorer()
+    try:
+        html = pyg.to_html(df)
+        components.html(html, height=760, scrolling=True)
+    except Exception as exc:
+        st.error(f"PyGWalker 渲染失败：{exc}")
 
 
 orders, stores, products, inventory, promotions, rules = load_data()
