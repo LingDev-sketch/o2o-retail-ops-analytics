@@ -337,6 +337,26 @@ def build_ai_summary(
     return summary
 
 
+def render_pygwalker_explorer(df: pd.DataFrame) -> None:
+    try:
+        from pygwalker.api.streamlit import StreamlitRenderer
+    except ImportError:
+        st.warning("当前环境未安装 PyGWalker。部署时请确认 requirements.txt 中包含 pygwalker。")
+        return
+
+    if df.empty:
+        st.info("当前筛选条件下没有可探索的数据。")
+        return
+
+    max_rows = 8000
+    if len(df) > max_rows:
+        st.info(f"当前数据量较大，已取前 {max_rows:,} 行用于自助探索，避免页面加载过慢。")
+        df = df.head(max_rows)
+
+    renderer = StreamlitRenderer(df)
+    renderer.explorer()
+
+
 orders, stores, products, inventory, promotions, rules = load_data()
 
 st.title("O2O即时零售运营数据质量监控与自动化分析平台")
@@ -383,7 +403,7 @@ col3.metric("客单价", f"{aov:.1f}")
 col4.metric("退款率", pct_text(refund_rate))
 col5.metric("缺货率", pct_text(stockout_rate))
 
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["经营看板", "异常门店", "商品库存", "促销复盘", "规则配置", "AI分析总结"])
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["经营看板", "异常门店", "商品库存", "促销复盘", "规则配置", "AI分析总结", "自助探索分析"])
 
 with tab1:
     left, right = st.columns([1.4, 1])
@@ -468,3 +488,36 @@ with tab6:
         file_name="ai_analysis_summary.txt",
         mime="text/plain",
     )
+
+with tab7:
+    st.subheader("PyGWalker 自助探索分析")
+    st.caption("把数据表交给业务用户自行拖拽字段做图，适合临时探索分析。")
+
+    explore_orders = orders_f.merge(
+        stores[["store_id", "store_name", "region", "store_type"]],
+        on="store_id",
+        how="left",
+    ).merge(
+        products[["product_id", "product_name", "brand"]],
+        on="product_id",
+        how="left",
+    )
+    explore_inventory = inventory_f.merge(
+        stores[["store_id", "store_name", "city", "region", "store_type"]],
+        on="store_id",
+        how="left",
+    ).merge(
+        products[["product_id", "product_name", "brand", "category"]],
+        on="product_id",
+        how="left",
+    )
+
+    dataset_options = {
+        "订单经营明细": explore_orders,
+        "库存明细": explore_inventory,
+        "商品库存汇总": product_view,
+        "促销复盘结果": promo,
+        "异常门店清单": anomalies,
+    }
+    selected_dataset = st.selectbox("选择要探索的数据表", list(dataset_options.keys()))
+    render_pygwalker_explorer(dataset_options[selected_dataset])
