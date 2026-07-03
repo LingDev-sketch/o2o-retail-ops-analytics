@@ -1,0 +1,41 @@
+gmv_drop_7d:
+  metric: gmv
+  rule_type: pct_below_rolling_avg
+  window_days: 7
+  threshold: -0.3
+  level: high
+  description: GMV below recent 7-day average by more than 30%
+  suggestion: Check traffic, promotion exposure, product availability, and store operating status.
+
+order_drop_7d:
+  metric: order_count
+  rule_type: pct_below_rolling_avg
+  window_days: 7
+  threshold: -0.25
+  level: medium
+  description: Order count below recent 7-day average by more than 25%
+  suggestion: Check platform traffic, store opening status, and promotion participation.
+
+stockout_rate_high:
+  metric: stockout_rate
+  rule_type: above_threshold
+  threshold: 0.15
+  level: high
+  description: Stockout rate is higher than 15%
+  suggestion: Review replenishment frequency, safety stock, and high-selling SKUs.
+
+refund_rate_high:
+  metric: refund_rate
+  rule_type: above_threshold
+  threshold: 0.08
+  level: medium
+  description: Refund rate is higher than 8%
+  suggestion: Check delivery quality, product issues, inventory accuracy, and customer complaints.
+
+promo_no_lift:
+  metric: promo_lift
+  rule_type: below_threshold
+  threshold: 0.05
+  level: medium
+  description: Promotion lift lower than 5%
+  suggestion: Review discount strength, promoted SKUs, stock readiness, and store execution.

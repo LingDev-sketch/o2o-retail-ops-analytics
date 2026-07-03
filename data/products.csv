@@ -1,0 +1,21 @@
+﻿product_id,product_name,brand,category,cost_price,sale_price
+P001,Latte,O2O Mart,Coffee,55.82,83.0
+P002,Americano,MPS Select,Coffee,36.22,69.0
+P003,Cold Brew,FreshGo,Coffee,45.2,81.0
+P004,Mocha,FreshGo,Coffee,19.74,40.0
+P005,Protein Bar,FreshGo,Snack,26.29,47.0
+P006,Chips,DailyPlus,Snack,11.05,22.0
+P007,Cookie,DailyPlus,Snack,30.28,55.0
+P008,Nuts,MPS Select,Snack,40.42,63.0
+P009,Yogurt,O2O Mart,Dairy,31.31,60.0
+P010,Milk,FreshGo,Dairy,41.69,65.0
+P011,Cheese Stick,MPS Select,Dairy,24.26,45.0
+P012,Milk Tea,MPS Select,Dairy,37.69,73.0
+P013,Salad,O2O Mart,Ready Meal,14.46,30.0
+P014,Rice Bowl,MPS Select,Ready Meal,31.74,64.0
+P015,Sandwich,O2O Mart,Ready Meal,46.06,73.0
+P016,Pasta,UrbanLife,Ready Meal,7.23,12.0
+P017,Face Mask,O2O Mart,Beauty,30.22,48.0
+P018,Hand Cream,FreshGo,Beauty,36.67,66.0
+P019,Cleanser,FreshGo,Beauty,24.11,50.0
+P020,Sunscreen,O2O Mart,Beauty,26.2,55.0
