@@ -342,7 +342,7 @@ def render_data_source_panel(
     sample_data: dict[str, pd.DataFrame],
 ) -> dict[str, pd.DataFrame]:
     st.subheader("数据源")
-    source_options = ["仓库Excel数据", "上传Excel数据", "示例CSV数据"]
+    source_options = ["仓库Excel数据", "示例CSV数据"]
     default_index = source_options.index(st.session_state.active_source) if st.session_state.active_source in source_options else 0
     source_mode = st.radio(
         "选择当前看板使用的数据",
@@ -369,7 +369,7 @@ def render_data_source_panel(
             preview_data = read_workbook(uploaded)
             st.session_state.uploaded_data = preview_data
             st.session_state.uploaded_name = uploaded.name
-            st.success(f"已读取：{uploaded.name}。请先查看右侧预览，再点击“应用上传数据”。")
+            st.success(f"已读取：{uploaded.name}。请先查看右侧预览，再点击“临时查看上传数据”。")
         except Exception as exc:
             st.session_state.uploaded_data = None
             st.error(f"Excel读取失败：{exc}")
@@ -394,8 +394,8 @@ def render_data_source_panel(
 
     c1, c2, c3 = st.columns([1, 1, 4])
     with c1:
-        if st.button("应用上传数据", disabled=st.session_state.uploaded_data is None, type="primary"):
-            st.session_state.active_source = "上传Excel数据"
+        if st.button("临时查看上传数据", disabled=st.session_state.uploaded_data is None, type="primary"):
+            st.session_state.active_source = "临时上传Excel数据"
             st.rerun()
     with c2:
         if st.button("恢复仓库Excel"):
@@ -404,14 +404,12 @@ def render_data_source_panel(
             st.session_state.uploaded_name = ""
             st.rerun()
 
-    if source_mode == "仓库Excel数据":
+    if source_mode == "仓库Excel数据" and st.session_state.active_source != "临时上传Excel数据":
         st.session_state.active_source = "仓库Excel数据"
-    elif source_mode == "示例CSV数据":
+    elif source_mode == "示例CSV数据" and st.session_state.active_source != "临时上传Excel数据":
         st.session_state.active_source = "示例CSV数据"
-    if source_mode == "上传Excel数据" and st.session_state.uploaded_data is not None:
-        st.session_state.active_source = "上传Excel数据"
 
-    if st.session_state.active_source == "上传Excel数据" and st.session_state.uploaded_data is not None:
+    if st.session_state.active_source == "临时上传Excel数据" and st.session_state.uploaded_data is not None:
         st.info(f"当前看板数据源：临时上传文件 {st.session_state.uploaded_name}")
         return st.session_state.uploaded_data
     if st.session_state.active_source == "仓库Excel数据" and repo_excel_data is not None:
