@@ -358,7 +358,7 @@ def render_data_source_panel(
 
     with right:
         if st.session_state.uploaded_data is not None:
-            st.info(f"当前预览：用户手动上传的Excel数据（{st.session_state.uploaded_name}）。")
+            st.info(f"当前预览：临时查看上传数据（{st.session_state.uploaded_name}）。")
             st.dataframe(data_profile(st.session_state.uploaded_data), use_container_width=True, hide_index=True)
             st.dataframe(st.session_state.uploaded_data["orders"].head(5), use_container_width=True, hide_index=True)
         else:
