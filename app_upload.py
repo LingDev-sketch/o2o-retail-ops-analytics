@@ -330,14 +330,8 @@ def render_data_source_panel(
     repo_excel_data: dict[str, pd.DataFrame] | None,
 ) -> dict[str, pd.DataFrame]:
     st.subheader("数据源")
-    source_options = ["仓库Excel数据", "临时上传Excel数据"]
-    default_index = source_options.index(st.session_state.active_source) if st.session_state.active_source in source_options else 0
-    source_mode = st.radio(
-        "选择当前看板使用的数据",
-        source_options,
-        horizontal=True,
-        index=default_index,
-        help="仓库Excel数据适合部署展示：维护者只需要覆盖GitHub里的固定Excel，用户打开链接即可看到最新数据。",
+    st.info(
+        "默认使用 GitHub 仓库固定路径下的 Excel 数据；下方上传入口仅用于临时查看，不会更新公共链接。"
     )
 
     left, right = st.columns([1, 1.2])
@@ -367,15 +361,13 @@ def render_data_source_panel(
             st.info(f"当前预览：用户手动上传的Excel数据（{st.session_state.uploaded_name}）。")
             st.dataframe(data_profile(st.session_state.uploaded_data), use_container_width=True, hide_index=True)
             st.dataframe(st.session_state.uploaded_data["orders"].head(5), use_container_width=True, hide_index=True)
-        elif source_mode == "仓库Excel数据":
+        else:
             if repo_excel_data is None:
                 st.error(f"未找到或无法读取仓库Excel：data/{SAMPLE_EXCEL.name}")
             else:
                 st.info("当前预览：GitHub仓库中的固定Excel数据。")
                 st.dataframe(data_profile(repo_excel_data), use_container_width=True, hide_index=True)
                 st.dataframe(repo_excel_data["orders"].head(5), use_container_width=True, hide_index=True)
-        else:
-            st.info("尚未上传临时文件。上传后会先预览，不会自动替换看板数据。")
 
     c1, c2, c3 = st.columns([1, 1, 4])
     with c1:
@@ -388,11 +380,6 @@ def render_data_source_panel(
             st.session_state.uploaded_data = None
             st.session_state.uploaded_name = ""
             st.rerun()
-
-    if source_mode == "仓库Excel数据":
-        st.session_state.active_source = "仓库Excel数据"
-    elif source_mode == "临时上传Excel数据" and st.session_state.uploaded_data is not None:
-        st.session_state.active_source = "临时上传Excel数据"
 
     if st.session_state.active_source == "临时上传Excel数据" and st.session_state.uploaded_data is not None:
         st.info(f"当前看板数据源：临时上传文件 {st.session_state.uploaded_name}")
