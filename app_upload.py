@@ -363,19 +363,19 @@ def render_data_source_panel(
             st.error(f"Excel读取失败：{exc}")
 
     with right:
-        if source_mode == "仓库Excel数据":
+        if st.session_state.uploaded_data is not None:
+            st.info(f"当前预览：用户手动上传的Excel数据（{st.session_state.uploaded_name}）。")
+            st.dataframe(data_profile(st.session_state.uploaded_data), use_container_width=True, hide_index=True)
+            st.dataframe(st.session_state.uploaded_data["orders"].head(5), use_container_width=True, hide_index=True)
+        elif source_mode == "仓库Excel数据":
             if repo_excel_data is None:
                 st.error(f"未找到或无法读取仓库Excel：data/{SAMPLE_EXCEL.name}")
             else:
                 st.info("当前预览：GitHub仓库中的固定Excel数据。")
                 st.dataframe(data_profile(repo_excel_data), use_container_width=True, hide_index=True)
                 st.dataframe(repo_excel_data["orders"].head(5), use_container_width=True, hide_index=True)
-        elif st.session_state.uploaded_data is None:
-            st.info("尚未上传临时文件。上传后会先预览，不会自动替换看板数据。")
         else:
-            st.caption(f"待应用文件：{st.session_state.uploaded_name}")
-            st.dataframe(data_profile(st.session_state.uploaded_data), use_container_width=True, hide_index=True)
-            st.dataframe(st.session_state.uploaded_data["orders"].head(5), use_container_width=True, hide_index=True)
+            st.info("尚未上传临时文件。上传后会先预览，不会自动替换看板数据。")
 
     c1, c2, c3 = st.columns([1, 1, 4])
     with c1:
