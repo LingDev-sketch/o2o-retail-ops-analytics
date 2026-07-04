@@ -71,17 +71,6 @@ def read_workbook(uploaded_file) -> dict[str, pd.DataFrame]:
 
 
 @st.cache_data
-def load_sample_data() -> dict[str, pd.DataFrame]:
-    return {
-        "orders": pd.read_csv(DATA_DIR / "orders.csv", parse_dates=["date"]),
-        "stores": pd.read_csv(DATA_DIR / "stores.csv", parse_dates=["open_date"]),
-        "products": pd.read_csv(DATA_DIR / "products.csv"),
-        "inventory": pd.read_csv(DATA_DIR / "inventory.csv", parse_dates=["date"]),
-        "promotions": pd.read_csv(DATA_DIR / "promotions.csv", parse_dates=["start_date", "end_date"]),
-    }
-
-
-@st.cache_data
 def load_repo_excel_data() -> dict[str, pd.DataFrame]:
     return read_workbook(SAMPLE_EXCEL)
 
@@ -339,10 +328,9 @@ def render_pygwalker_explorer(df: pd.DataFrame) -> None:
 
 def render_data_source_panel(
     repo_excel_data: dict[str, pd.DataFrame] | None,
-    sample_data: dict[str, pd.DataFrame],
 ) -> dict[str, pd.DataFrame]:
     st.subheader("数据源")
-    source_options = ["仓库Excel数据", "示例CSV数据"]
+    source_options = ["仓库Excel数据", "临时上传Excel数据"]
     default_index = source_options.index(st.session_state.active_source) if st.session_state.active_source in source_options else 0
     source_mode = st.radio(
         "选择当前看板使用的数据",
@@ -382,9 +370,6 @@ def render_data_source_panel(
                 st.info("当前预览：GitHub仓库中的固定Excel数据。")
                 st.dataframe(data_profile(repo_excel_data), use_container_width=True, hide_index=True)
                 st.dataframe(repo_excel_data["orders"].head(5), use_container_width=True, hide_index=True)
-        elif source_mode == "示例CSV数据":
-            st.info("当前预览：内置CSV示例数据。")
-            st.dataframe(data_profile(sample_data), use_container_width=True, hide_index=True)
         elif st.session_state.uploaded_data is None:
             st.info("尚未上传临时文件。上传后会先预览，不会自动替换看板数据。")
         else:
@@ -404,10 +389,10 @@ def render_data_source_panel(
             st.session_state.uploaded_name = ""
             st.rerun()
 
-    if source_mode == "仓库Excel数据" and st.session_state.active_source != "临时上传Excel数据":
+    if source_mode == "仓库Excel数据":
         st.session_state.active_source = "仓库Excel数据"
-    elif source_mode == "示例CSV数据" and st.session_state.active_source != "临时上传Excel数据":
-        st.session_state.active_source = "示例CSV数据"
+    elif source_mode == "临时上传Excel数据" and st.session_state.uploaded_data is not None:
+        st.session_state.active_source = "临时上传Excel数据"
 
     if st.session_state.active_source == "临时上传Excel数据" and st.session_state.uploaded_data is not None:
         st.info(f"当前看板数据源：临时上传文件 {st.session_state.uploaded_name}")
@@ -416,17 +401,16 @@ def render_data_source_panel(
         st.info(f"当前看板数据源：GitHub仓库固定Excel `data/{SAMPLE_EXCEL.name}`")
         return repo_excel_data
 
-    st.info("当前看板数据源：内置CSV示例数据")
-    return sample_data
+    st.error("当前没有可用数据。请先把Excel放到GitHub仓库固定路径，或临时上传一个Excel文件。")
+    st.stop()
 
 
 init_session()
-sample_data = load_sample_data()
 try:
     repo_excel_data = load_repo_excel_data()
 except Exception as exc:
     repo_excel_data = None
-    st.warning(f"仓库Excel读取失败，将使用示例CSV数据。原因：{exc}")
+    st.warning(f"仓库Excel读取失败。原因：{exc}")
 rules = load_rules()
 
 st.title("仓库Excel版｜O2O即时零售运营分析平台")
@@ -445,7 +429,7 @@ with st.expander("Excel工作簿格式要求", expanded=False):
         """
     )
 
-data = render_data_source_panel(repo_excel_data, sample_data)
+data = render_data_source_panel(repo_excel_data)
 orders = data["orders"]
 stores = data["stores"]
 products = data["products"]
